@@ -9,3 +9,4 @@ seaborn
 plotly
 streamlit
 joblib
+kagglehub>=1.0.2
