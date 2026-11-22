@@ -1012,22 +1012,50 @@ def safe_column(data, column):
 # LOAD REQUIRED DATA
 # =========================================================
 
-if not DATA_PATH.exists():
+@st.cache_resource
+def resolve_dataset_path():
+    """Use the local CSV when available; otherwise fetch the public Kaggle file."""
+    if DATA_PATH.exists():
+        return DATA_PATH
 
-    st.error(
-        "Dataset not found. Expected location: "
-        "data/raw/bank_fraud.csv"
-    )
+    try:
+        import kagglehub
 
-    st.stop()
+        DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+        downloaded_path = kagglehub.dataset_download(
+            "nafiulislam490/bank-transaction-fraud-detection-dataset",
+            path="bank_fraud.csv",
+            output_dir=str(DATA_PATH.parent),
+        )
+        downloaded_path = Path(downloaded_path)
+
+        if downloaded_path.is_file():
+            return downloaded_path
+
+        candidate = DATA_PATH.parent / "bank_fraud.csv"
+        if candidate.is_file():
+            return candidate
+
+        raise FileNotFoundError(
+            "KaggleHub completed, but bank_fraud.csv was not found."
+        )
+
+    except Exception as exc:
+        st.error(
+            "Dataset not found locally and the public Kaggle download failed: "
+            f"{exc}"
+        )
+        st.info(
+            "Ensure kagglehub is listed in requirements.txt and the app can "
+            "access the internet."
+        )
+        st.stop()
 
 
 try:
-
-    df = load_data(str(DATA_PATH))
-
+    resolved_data_path = resolve_dataset_path()
+    df = load_data(str(resolved_data_path))
 except Exception as exc:
-
     st.error(f"Could not load dataset: {exc}")
     st.stop()
 
